@@ -1,3 +1,5 @@
+// TODO(settings-sync): disabled for now, see TODO.md
+/*
 import Foundation
 
 /// Copies DJ settings that rekordbox and Serato DJ Pro have in common from rekordbox to Serato.
@@ -103,3 +105,4 @@ public enum SettingsSync {
         }
     }
 }
+*/

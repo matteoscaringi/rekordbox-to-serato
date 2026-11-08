@@ -28,7 +28,7 @@ func runPreview() -> Int32 {
     o.mp3OffsetMs = d.double(forKey: "mp3OffsetMs")
     o.conversion.includeLoops = bool("includeLoops", true)
     o.conversion.memoryCues = MemoryCueMode(rawValue: d.string(forKey: "memoryCueMode") ?? "") ?? .fillEmptySlots
-    o.syncSettings = bool("syncSettings", true)
+    // o.syncSettings = bool("syncSettings", true)  // TODO(settings-sync)
     o.dryRun = true
     print("Playlists selected: \(o.selectedPlaylistIDs.count) of \(allIDs.count), parent crate: \"\(o.rootCrateName)\"\n")
     var lines: [SyncLogLine] = []

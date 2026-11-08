@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 VERSION="0.1.1"
-BUILD_NUMBER="2"
+BUILD_NUMBER="3"
 APP_NAME="Rekordbox to Serato"
 PACKAGE=false
 [ "${1:-}" = "--package" ] && PACKAGE=true

@@ -5,12 +5,15 @@ import Foundation
 setvbuf(stdout, nil, _IOLBF, 0)
 @testable import SyncCore
 
+// TODO(settings-sync): disabled for now, see TODO.md
+/*
 if CommandLine.arguments.count >= 3, CommandLine.arguments[1] == "--settings-snapshot" {
     exit(settingsSnapshot(CommandLine.arguments[2]))
 }
 if CommandLine.arguments.count >= 3, CommandLine.arguments[1] == "--settings-diff" {
     exit(settingsDiff(CommandLine.arguments[2]))
 }
+*/
 if CommandLine.arguments.count >= 2, CommandLine.arguments[1] == "--preview" {
     exit(runPreview())
 }
@@ -370,6 +373,8 @@ check(SyncEngine.isRekordboxOwned("/Users/x/Music/rekordbox/Sampler/GROOVE CIRCU
       && !SyncEngine.isRekordboxOwned("/Users/x/Music/Tracks/a.wav"), "rekordbox's own sampler files are never tagged")
 
 
+// TODO(settings-sync): disabled for now, see TODO.md
+/*
 // --- 7. DJ settings sync (throwaway preferences domain, never Serato's) --------
 print("Settings sync")
 let testDomain = "local.rekordbox-to-serato.selftest.\(ProcessInfo.processInfo.processIdentifier)"
@@ -403,6 +408,7 @@ check(sr1.backupFolder.map { FileManager.default.fileExists(atPath: $0.appending
       "Serato settings backed up before changing them")
 let sr2 = try SyncEngine(library: lib, options: so, progress: { _, _ in }, log: { _ in }).run()
 check(sr2.settingsChanged == 0, "second sync: settings already match, nothing written")
+*/
 
 print(failures == 0 ? "\nALL TESTS PASSED" : "\n\(failures) FAILURE(S)")
 exit(failures == 0 ? 0 : 1)

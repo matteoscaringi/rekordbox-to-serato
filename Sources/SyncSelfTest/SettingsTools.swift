@@ -1,3 +1,5 @@
+// TODO(settings-sync): disabled for now, see TODO.md
+/*
 // Calibration helper for settings sync (read-only):
 //   swift run SyncSelfTest --settings-snapshot <file.json>   remember both apps' settings now
 //   swift run SyncSelfTest --settings-diff <file.json>       show what changed since the snapshot
@@ -28,3 +30,4 @@ func settingsDiff(_ path: String) -> Int32 {
     for k in keys { print("\(k):  \(old[k] ?? "(not set)")  →  \(now[k] ?? "(removed)")") }
     return 0
 }
+*/

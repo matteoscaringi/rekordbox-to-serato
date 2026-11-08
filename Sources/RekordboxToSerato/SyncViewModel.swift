@@ -41,9 +41,10 @@ final class SyncViewModel: ObservableObject {
     @AppStorage("memoryCueMode") var memoryCueMode: MemoryCueMode = .fillEmptySlots
     @AppStorage("tagWholeCollection") var tagWholeCollection = false
     @AppStorage("autoMP3Timing") var autoMP3Timing = true
-    @AppStorage("syncSettings") var syncSettings = true
-    /// rekordbox → Serato settings comparison shown in the Settings section.
-    @Published var settingsPlan: [SettingsSync.Change] = []
+    // TODO(settings-sync): disabled for now, see TODO.md
+    // @AppStorage("syncSettings") var syncSettings = true
+    // /// rekordbox → Serato settings comparison shown in the Settings section.
+    // @Published var settingsPlan: [SettingsSync.Change] = []
     @AppStorage("mp3OffsetMs") var mp3OffsetMs = 0.0
     @AppStorage("backup") var backup = true
 
@@ -108,6 +109,8 @@ final class SyncViewModel: ObservableObject {
         }
     }
 
+    // TODO(settings-sync): disabled for now, see TODO.md
+    /*
     /// Compares the DJ settings both apps share (read-only).
     func refreshSettingsPlan() {
         Task.detached(priority: .utility) {
@@ -116,10 +119,11 @@ final class SyncViewModel: ObservableObject {
             await MainActor.run { self.settingsPlan = plan }
         }
     }
+    */
 
     /// Called when the app becomes active: picks up a newer export from rekordbox.
     func refreshXMLIfNeeded() {
-        refreshSettingsPlan()
+        // refreshSettingsPlan()  // TODO(settings-sync)
         guard !isRunning else { return }
         if !xmlChosenManually {
             detectXML(userInitiated: false)
@@ -246,7 +250,7 @@ final class SyncViewModel: ObservableObject {
         o.lockBeatgrids = lockGrids
         o.tagWholeCollection = tagWholeCollection
         o.autoMP3Timing = autoMP3Timing
-        o.syncSettings = syncSettings
+        // o.syncSettings = syncSettings  // TODO(settings-sync)
         o.mp3OffsetMs = mp3OffsetMs
         o.backup = backup
         o.dryRun = dryRun
@@ -273,7 +277,7 @@ final class SyncViewModel: ObservableObject {
                 let r = try engine.run()
                 await MainActor.run {
                     self.isRunning = false; self.status = r.summary; self.libraryVersion += 1
-                    self.refreshSettingsPlan()
+                    // self.refreshSettingsPlan()  // TODO(settings-sync)
                 }
             } catch {
                 await MainActor.run {

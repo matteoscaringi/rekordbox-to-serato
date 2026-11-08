@@ -222,6 +222,8 @@ struct SyncDetail: View {
                 Toggle("Back up Serato database & crates before syncing", isOn: $vm.backup)
             }
 
+            // TODO(settings-sync): disabled for now, see TODO.md
+            /*
             Section {
                 Toggle("Copy shared DJ settings from rekordbox to Serato", isOn: $vm.syncSettings)
                 ForEach(vm.settingsPlan) { c in
@@ -245,6 +247,7 @@ struct SyncDetail: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             .onAppear { vm.refreshSettingsPlan() }
+            */
 
             Section {
                 Toggle("Hot cues", isOn: $vm.writeCues)
