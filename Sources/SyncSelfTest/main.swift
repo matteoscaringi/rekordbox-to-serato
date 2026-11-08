@@ -5,6 +5,12 @@ import Foundation
 setvbuf(stdout, nil, _IOLBF, 0)
 @testable import SyncCore
 
+if CommandLine.arguments.count >= 3, CommandLine.arguments[1] == "--settings-snapshot" {
+    exit(settingsSnapshot(CommandLine.arguments[2]))
+}
+if CommandLine.arguments.count >= 3, CommandLine.arguments[1] == "--settings-diff" {
+    exit(settingsDiff(CommandLine.arguments[2]))
+}
 if CommandLine.arguments.count >= 2, CommandLine.arguments[1] == "--preview" {
     exit(runPreview())
 }
@@ -362,6 +368,41 @@ check(MP3TimingCase.classify(frame("Info", lame: "LAME3.100", validCRC: false)) 
 check(MP3TimingCase.classify(frame("Info", lame: "LAME3.100")) == .d, "valid LAME tag → case D (+10 ms)")
 check(SyncEngine.isRekordboxOwned("/Users/x/Music/rekordbox/Sampler/GROOVE CIRCUIT/PRESET/a.wav")
       && !SyncEngine.isRekordboxOwned("/Users/x/Music/Tracks/a.wav"), "rekordbox's own sampler files are never tagged")
+
+
+// --- 7. DJ settings sync (throwaway preferences domain, never Serato's) --------
+print("Settings sync")
+let testDomain = "local.rekordbox-to-serato.selftest.\(ProcessInfo.processInfo.processIdentifier)"
+defer {
+    for k in (CFPreferencesCopyKeyList(testDomain as CFString, kCFPreferencesCurrentUser, kCFPreferencesAnyHost) as? [String]) ?? [] {
+        CFPreferencesSetValue(k as CFString, nil, testDomain as CFString, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
+    }
+    CFPreferencesSynchronize(testDomain as CFString, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
+}
+let rbSettings = ["Player0_MasterTempo": "1", "Player1_MasterTempo": "0", "Player2_MasterTempo": "1", "Player3_MasterTempo": "1",
+                  "AutoInstantDoubles": "0"]
+let settingsPlan1 = SettingsSync.plan(rekordbox: rbSettings, serato: ["pitch_keylock_deck_A": 1, "pitch_keylock_deck_B": 1])
+check(settingsPlan1.count == 5, "five shared settings mapped (keylock A–D, Instant Doubles)")
+check(settingsPlan1.first { $0.seratoKey == "pitch_keylock_deck_A" }?.isChange == false, "matching Serato setting left alone")
+check(settingsPlan1.first { $0.seratoKey == "pitch_keylock_deck_B" }.map { $0.isChange && $0.new == 0 } == true, "different Serato setting changed to rekordbox's")
+check(settingsPlan1.first { $0.seratoKey == "playback_instant_doubles_on_load" }.map { $0.isChange && !$0.isSetInSerato && $0.new == 0 } == true,
+      "setting Serato never stored is written explicitly")
+check(SettingsSync.plan(rekordbox: [:], serato: [:]).isEmpty, "no rekordbox settings → nothing changed")
+// full engine run against the throwaway domain and the fake rekordbox home
+try put(settingsFile, settings(autoExport: "").replacingOccurrences(of: "</PROPERTIES>", with:
+    #"<VALUE name="Player0_MasterTempo" val="0"/><VALUE name="Player1_MasterTempo" val="1"/><VALUE name="AutoInstantDoubles" val="1"/></PROPERTIES>"#), age: 0)
+var so = opts
+so.settingsDomain = testDomain
+so.rekordboxHome = home
+so.writeCrates = false; so.addToSeratoDatabase = false; so.writeCuesAndGrids = false
+let sr1 = try SyncEngine(library: lib, options: so, progress: { _, _ in }, log: { _ in }).run()
+let written = SettingsSync.readSerato(domain: testDomain)
+check(sr1.settingsChanged == 3 && (written["pitch_keylock_deck_A"] as? Int) == 0 && (written["pitch_keylock_deck_B"] as? Int) == 1
+      && (written["playback_instant_doubles_on_load"] as? Int) == 1, "engine writes rekordbox's settings to Serato's preferences")
+check(sr1.backupFolder.map { FileManager.default.fileExists(atPath: $0.appendingPathComponent("\(testDomain).plist").path) } == true,
+      "Serato settings backed up before changing them")
+let sr2 = try SyncEngine(library: lib, options: so, progress: { _, _ in }, log: { _ in }).run()
+check(sr2.settingsChanged == 0, "second sync: settings already match, nothing written")
 
 print(failures == 0 ? "\nALL TESTS PASSED" : "\n\(failures) FAILURE(S)")
 exit(failures == 0 ? 0 : 1)

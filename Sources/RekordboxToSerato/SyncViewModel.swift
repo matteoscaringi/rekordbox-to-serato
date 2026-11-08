@@ -41,6 +41,9 @@ final class SyncViewModel: ObservableObject {
     @AppStorage("memoryCueMode") var memoryCueMode: MemoryCueMode = .fillEmptySlots
     @AppStorage("tagWholeCollection") var tagWholeCollection = false
     @AppStorage("autoMP3Timing") var autoMP3Timing = true
+    @AppStorage("syncSettings") var syncSettings = true
+    /// rekordbox → Serato settings comparison shown in the Settings section.
+    @Published var settingsPlan: [SettingsSync.Change] = []
     @AppStorage("mp3OffsetMs") var mp3OffsetMs = 0.0
     @AppStorage("backup") var backup = true
 
@@ -105,8 +108,18 @@ final class SyncViewModel: ObservableObject {
         }
     }
 
+    /// Compares the DJ settings both apps share (read-only).
+    func refreshSettingsPlan() {
+        Task.detached(priority: .utility) {
+            let rb = RekordboxSettings.allValues(home: FileManager.default.homeDirectoryForCurrentUser) ?? [:]
+            let plan = SettingsSync.plan(rekordbox: rb, serato: SettingsSync.readSerato())
+            await MainActor.run { self.settingsPlan = plan }
+        }
+    }
+
     /// Called when the app becomes active: picks up a newer export from rekordbox.
     func refreshXMLIfNeeded() {
+        refreshSettingsPlan()
         guard !isRunning else { return }
         if !xmlChosenManually {
             detectXML(userInitiated: false)
@@ -233,6 +246,7 @@ final class SyncViewModel: ObservableObject {
         o.lockBeatgrids = lockGrids
         o.tagWholeCollection = tagWholeCollection
         o.autoMP3Timing = autoMP3Timing
+        o.syncSettings = syncSettings
         o.mp3OffsetMs = mp3OffsetMs
         o.backup = backup
         o.dryRun = dryRun
@@ -257,7 +271,10 @@ final class SyncViewModel: ObservableObject {
                 isCancelled: { flag.value })
             do {
                 let r = try engine.run()
-                await MainActor.run { self.isRunning = false; self.status = r.summary; self.libraryVersion += 1 }
+                await MainActor.run {
+                    self.isRunning = false; self.status = r.summary; self.libraryVersion += 1
+                    self.refreshSettingsPlan()
+                }
             } catch {
                 await MainActor.run {
                     self.isRunning = false

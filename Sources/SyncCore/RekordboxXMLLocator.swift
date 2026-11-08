@@ -8,26 +8,35 @@ public struct RekordboxSettings {
     /// Preferences ▸ Advanced ▸ Database ▸ rekordbox xml ("Imported Library").
     public var importedLibraryFile: String?
 
-    /// Reads `~/Library/Application Support/Pioneer/<version>/rekordbox3.settings`.
-    public static func read(home: URL) -> RekordboxSettings? {
+    /// Every `<VALUE name=… val=…>` in rekordbox3.settings (read-only).
+    public static func allValues(home: URL) -> [String: String]? {
+        guard let file = settingsFile(home: home), let parser = XMLParser(contentsOf: file) else { return nil }
+        let d = ValueCollector()
+        parser.delegate = d
+        return parser.parse() ? d.values : nil
+    }
+
+    static func settingsFile(home: URL) -> URL? {
         let pioneer = home.appendingPathComponent("Library/Application Support/Pioneer")
         let fm = FileManager.default
-        let candidates = ((try? fm.contentsOfDirectory(atPath: pioneer.path)) ?? [])
+        return ((try? fm.contentsOfDirectory(atPath: pioneer.path)) ?? [])
             .filter { $0.hasPrefix("rekordbox") }
             .map { pioneer.appendingPathComponent($0).appendingPathComponent("rekordbox3.settings") }
             .filter { fm.fileExists(atPath: $0.path) }
             .sorted { modDate($0) > modDate($1) }   // the one rekordbox wrote last
-        guard let file = candidates.first, let parser = XMLParser(contentsOf: file) else { return nil }
-        let d = ValueCollector()
-        parser.delegate = d
-        guard parser.parse() else { return nil }
-        func path(_ k: String) -> String? { d.values[k].flatMap { $0.isEmpty ? nil : $0 } }
-        return RekordboxSettings(autoExportEnabled: d.values["CollectionAutoExportEnable"] == "1",
+            .first
+    }
+
+    /// Reads `~/Library/Application Support/Pioneer/<version>/rekordbox3.settings`.
+    public static func read(home: URL) -> RekordboxSettings? {
+        guard let values = allValues(home: home) else { return nil }
+        func path(_ k: String) -> String? { values[k].flatMap { $0.isEmpty ? nil : $0 } }
+        return RekordboxSettings(autoExportEnabled: values["CollectionAutoExportEnable"] == "1",
                                  autoExportFile: path("CollectionAutoExportXmlFile"),
                                  importedLibraryFile: path("bridgeImportedLibraryFile"))
     }
 
-    private final class ValueCollector: NSObject, XMLParserDelegate {
+    final class ValueCollector: NSObject, XMLParserDelegate {
         var values: [String: String] = [:]
         func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?,
                     qualifiedName: String?, attributes a: [String: String] = [:]) {

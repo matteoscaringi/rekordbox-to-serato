@@ -19,6 +19,12 @@ public struct SyncOptions {
     /// Extra manual offset for MP3s, on top of the automatic correction.
     public var mp3OffsetMs: Double = 0
     public var backup = true
+    /// Copy the DJ settings both apps share (keylock per deck, Instant Doubles, …) to Serato.
+    public var syncSettings = true
+    /// Preferences domain written for settings (Serato's; tests use a throwaway domain).
+    public var settingsDomain = SettingsSync.seratoDomain
+    /// Where rekordbox's settings are read from (the user's home folder).
+    public var rekordboxHome = FileManager.default.homeDirectoryForCurrentUser
     public var dryRun = false
     public var conversion = ConversionOptions()
 
@@ -41,6 +47,7 @@ public struct SyncReport {
     public var tracksAddedToDatabase = 0
     public var tracksUpdatedInDatabase = 0
     public var filesSkippedRekordboxOwned = 0
+    public var settingsChanged = 0
     public var filesTagged = 0
     public var filesUnchanged = 0
     public var filesMissing = 0
@@ -51,6 +58,7 @@ public struct SyncReport {
     public var summary: String {
         var s = "Crates written: \(cratesWritten), removed: \(cratesRemoved). Serato library: \(tracksAddedToDatabase) added, \(tracksUpdatedInDatabase) updated. "
         s += "Files updated: \(filesTagged), already up to date: \(filesUnchanged), missing: \(filesMissing), unsupported: \(filesUnsupported), failed: \(filesFailed)."
+        if settingsChanged > 0 { s += " Settings changed in Serato: \(settingsChanged)." }
         if filesSkippedRekordboxOwned > 0 { s += " Left alone (rekordbox's own sampler/recording files): \(filesSkippedRekordboxOwned)." }
         return s
     }
@@ -212,6 +220,28 @@ public final class SyncEngine {
             info("\(dry ? "Would add" : "Added") \(r.added) new tracks to Serato's library and \(dry ? "would update" : "updated") \(r.updated) (title, artist, BPM, key… from rekordbox)")
         }
 
+        // DJ settings both apps share
+        if options.syncSettings {
+            if let rb = RekordboxSettings.allValues(home: options.rekordboxHome) {
+                let plan = SettingsSync.plan(rekordbox: rb, serato: SettingsSync.readSerato(domain: options.settingsDomain))
+                let changes = plan.filter(\.isChange)
+                for c in changes {
+                    let from = c.isSetInSerato ? (c.current == 1 ? "on" : "off") : "Serato default"
+                    info("\(dry ? "Would set" : "Set") Serato setting “\(c.title)” to \(c.new == 1 ? "on" : "off") (was \(from)), as in rekordbox")
+                }
+                if !changes.isEmpty && !dry {
+                    var folder = report.backupFolder
+                    if folder == nil && options.backup { folder = try makeBackupFolder(options.seratoFolder) }
+                    try SettingsSync.apply(changes, domain: options.settingsDomain, backupFolder: options.backup ? folder : nil)
+                    if report.backupFolder == nil { report.backupFolder = folder }
+                }
+                report.settingsChanged = changes.count
+                if changes.isEmpty { info("Serato's DJ settings already match rekordbox (\(plan.count) checked)") }
+            } else {
+                warn("rekordbox's settings file wasn't found, so DJ settings were not synced")
+            }
+        }
+
         // Cues & beatgrids
         if options.writeCuesAndGrids {
             let total = max(1, trackIDs.count)
@@ -304,10 +334,7 @@ public final class SyncEngine {
         }
     }
 
-    func backup(_ serato: URL) throws -> URL? {
-        let items = ["database V2", "Subcrates", "neworder.pref"].map { serato.appendingPathComponent($0) }
-            .filter { fm.fileExists(atPath: $0.path) }
-        guard !items.isEmpty else { return nil }
+    func makeBackupFolder(_ serato: URL) throws -> URL {
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let parent = serato.deletingLastPathComponent().appendingPathComponent("_Serato_ Backups (Rekordbox Sync)")
         let stamp = f.string(from: Date())
@@ -315,6 +342,14 @@ public final class SyncEngine {
         var n = 2
         while fm.fileExists(atPath: dest.path) { dest = parent.appendingPathComponent("\(stamp) (\(n))"); n += 1 }
         try fm.createDirectory(at: dest, withIntermediateDirectories: true)
+        return dest
+    }
+
+    func backup(_ serato: URL) throws -> URL? {
+        let items = ["database V2", "Subcrates", "neworder.pref"].map { serato.appendingPathComponent($0) }
+            .filter { fm.fileExists(atPath: $0.path) }
+        guard !items.isEmpty else { return nil }
+        let dest = try makeBackupFolder(serato)
         for i in items { try fm.copyItem(at: i, to: dest.appendingPathComponent(i.lastPathComponent)) }
         return dest
     }

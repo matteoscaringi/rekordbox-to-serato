@@ -223,6 +223,30 @@ struct SyncDetail: View {
             }
 
             Section {
+                Toggle("Copy shared DJ settings from rekordbox to Serato", isOn: $vm.syncSettings)
+                ForEach(vm.settingsPlan) { c in
+                    LabeledContent(c.title) {
+                        HStack(spacing: 6) {
+                            Text(c.new == 1 ? "On" : "Off")
+                            if c.isChange {
+                                Text(c.isSetInSerato ? "Serato: \(c.current == 1 ? "on" : "off")" : "Serato: default")
+                                    .font(.caption).foregroundStyle(.orange)
+                            } else {
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).help("Serato already matches")
+                            }
+                        }
+                    }
+                    .disabled(!vm.syncSettings)
+                }
+            } header: {
+                Text("DJ settings")
+            } footer: {
+                Text("Settings both apps share are copied from rekordbox, so Serato behaves the same. rekordbox is only read. Serato's settings are backed up before every change.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .onAppear { vm.refreshSettingsPlan() }
+
+            Section {
                 Toggle("Hot cues", isOn: $vm.writeCues)
                 Picker("Memory cues", selection: $vm.memoryCueMode) {
                     ForEach(MemoryCueMode.allCases) { Text($0.rawValue).tag($0) }

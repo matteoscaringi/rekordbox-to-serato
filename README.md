@@ -11,6 +11,7 @@ A macOS SwiftUI app that copies your rekordbox library into Serato DJ Pro:
 | Hot loops / memory loops | Saved loops |
 | Beatgrid (constant and variable tempo) | Serato BeatGrid, first marker on a downbeat |
 | Tracks | Added to Serato's library (`database V2`) |
+| Shared DJ settings (keylock per deck, Instant Doubles) | The same settings in Serato DJ Pro |
 
 ## Download & install
 Get **Rekordbox-to-Serato-x.y.z.dmg** (or the .zip) from [Releases](../../releases), open it and drag the app to Applications. You need macOS 14 Sonoma or later; it runs natively on Apple Silicon and Intel.
@@ -39,6 +40,21 @@ In rekordbox: **File ▸ Export Collection in xml format**. Re-export it wheneve
 
 ## Cue colours
 Serato can only show 18 hot cue colours, and the colour it shows on screen differs from the value it stores in the file. So each rekordbox colour is compared against the colours Serato *displays*, with the closest one chosen by CIEDE2000 colour difference, weighted towards hue because Serato's colours are darker. The matching stored value is then written to the file. The colour tables come from Mixxx's reverse-engineered Serato palettes. Run `swift run SyncSelfTest --colors` to see how all 16 rekordbox colours map (red → red, orange → orange, green → green, purple → purple, …).
+
+## DJ settings
+Settings that both apps have are copied from rekordbox to Serato, so Serato behaves the way you set up rekordbox. rekordbox's `rekordbox3.settings` is only read. Serato DJ Pro's settings (`com.serato.seratodj`) are written through macOS's preferences system, only while Serato is closed, and backed up first.
+
+| rekordbox | Serato DJ Pro |
+|---|---|
+| Master Tempo per deck (`Player1–4_MasterTempo`) | Keylock per deck (`pitch_keylock_deck_A–D`) |
+| Instant Doubles (`AutoInstantDoubles`) | Instant Doubles on load (`playback_instant_doubles_on_load`) |
+
+Found in both apps, but waiting for a one-time check of what rekordbox's values mean, so they aren't synced yet:
+* Start from the first cue when loading (`DeckLoadingStartPosition` → `playback_play_from_first_cue_on_load`)
+* Lock a playing deck (`DeckLoadLock` → `playback_lock_playing_deck`)
+* Key notation (`KeyStringSetting` → `display_musical_key_format`)
+
+To decode one: run `swift run SyncSelfTest --settings-snapshot /tmp/s.json`, change that setting in rekordbox (or Serato), quit the app, then run `swift run SyncSelfTest --settings-diff /tmp/s.json`.
 
 ## Same files, no side effects
 * **Same audio files.** Crates and Serato's database point at the exact files rekordbox uses (paths from the XML). Nothing is copied or moved. Before writing, each path is matched to its exact spelling on disk (accents, upper/lower case). Otherwise Serato could list a file twice.
